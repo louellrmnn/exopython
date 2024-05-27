@@ -2,6 +2,20 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 
+# Function to convert star rating to numerical value
+def convert_rating(rating_str):
+    ratings = {
+        'One': 1,
+        'Two': 2,
+        'Three': 3,
+        'Four': 4,
+        'Five': 5
+    }
+    for key in ratings:
+        if key in rating_str:
+            return ratings[key]
+    return 0
+
 # Function to scrape a single page
 def scrape_page(page_num):
     url = f"https://books.toscrape.com/catalogue/page-{page_num}.html"
@@ -9,31 +23,27 @@ def scrape_page(page_num):
     soup = BeautifulSoup(response.content, 'html.parser')
     
     books = []
-    for row in soup.select('tr.book'):
+    for article in soup.select('article.product_pod'):
         book = {}
-        book['h3'] = row.find('td', class_='h3g').get_text(strip=True)
-        book['star-rating'] = row.find('td', class_='star-rating').get_text(strip=True)
-        book['product_price'] = float(row.find('td', class_='product_price').get_text(strip=True))
-        book.append(book)
+        book['title'] = article.find('h3').find('a')['title']
+        book['star-rating'] = convert_rating(article.find('p', class_='star-rating')['class'][1])
+        book['price'] = float(article.find('p', class_='price_color').get_text(strip=True)[1:])
+        books.append(book)
     
     return books
 
 # Scrape the first 10 pages
 all_books = []
 for page_num in range(1, 11):
-    all.books(scrape_page(page_num))
-
+    all_books.extend(scrape_page(page_num))
 
 # Create a DataFrame to display the books
-df_books = pd.DataFrame(all_books, columns=['star-rating', 'title', 'product_price'])
-print(df_books)
+df_books = pd.DataFrame(all_books, columns=['title', 'star-rating', 'price'])
 
-# Scrape the first 10 pages for positive goal differential
-positive_diff_books = []
-for page_num in range(1, 11):
-    positive_diff_books.extend([team for team in scrape_page(page_num) if team['goal_diff'] > 0])
+# Filter books with 3 stars or more and price above 20.00
+filtered_books = df_books[(df_books['star-rating'] >= 3) & (df_books['price'] > 20.00)]
 
-# Write to result.csv
-df_positive_diff = pd.DataFrame(positive_diff_books, columns=['name', 'year', 'percent', 'goal_diff'])
-df_positive_diff.to_csv('result.csv', index=False)
-print("Les équipes avec un différentiel positif ont été écrites dans 'result.csv'.")
+# Write the results to a CSV file
+filtered_books.to_csv('result.csv', index=False, encoding='utf-8')
+
+print("Le fichier result.csv a été créé avec succès.")
